@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<!DOCTYPE coverage SYSTEM 'http://cobertura.sourceforge.net/xml/coverage-03.dtd'>
+ <coverage branch-rate="1.0" line-rate="1.0" timestamp="1447760545" version="llvm-cov-xml 1.0">
+ <sources><source></source></sources>
+ <packages>
+ </packages>
+</coverage>
