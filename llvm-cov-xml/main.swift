@@ -20,6 +20,7 @@ struct Config {
 	var workDir: String
 	var output: String
 	var verbose: Bool
+	var exclude: [String]
 	
 	var buildvars: [String:String]
 	var scheme: String
@@ -69,6 +70,7 @@ var config = Config(
 	workDir: fileManager.currentDirectoryPath,
 	output: (fileManager.currentDirectoryPath as NSString).stringByAppendingPathComponent("coverage.xml"),
 	verbose: false,
+	exclude: [],
 	
 	buildvars: [:],
 	scheme: "",
@@ -102,9 +104,11 @@ func vprint(s: String) {
 func print_usage() {
 	let prog = NSProcessInfo.processInfo().processName
 	let strings: [String] = [
-		"Usage: \(prog) [-v | --verbose] [-o OUTFILE | --output OUTFILE] [-r ROOT | --root ROOT]",
+		"Usage: \(prog) [-v | --verbose] [-o OUTFILE | --output OUTFILE] [-e MASK | --exclude MASK] [-r ROOT | --root ROOT]",
 		"       \(prog) [-u | --usage]",
 		"       -u --usage    Prints available arguments (this text)",
+		"       -e --exclude  Exclude files/directories with mask",
+		"                     (format: path prefixes/full paths, comma-separated)",
 		"       -v --verbose  Verbose logging",
 		"       -o --output   Output file path",
 		"                     (default: coverage.xml)",
@@ -138,6 +142,19 @@ func process_args() {
 		let root = resolvePath(args[idx+1], from: fileManager.currentDirectoryPath)
 		config.workDir = root
 		config.output = (root as NSString).stringByAppendingPathComponent("coverage.xml")
+		args.removeAtIndex(idx+1)
+		args.removeAtIndex(idx)
+	}
+	if args.contains("-e") || args.contains("--exclude") {
+		let idx = (args.indexOf("-e") ?? args.indexOf("--exclude"))!
+		if args.count < idx+1 {
+			eprint("\(args[idx]) option requires an argument")
+			print_usage()
+			exit(EXIT_FAILURE)
+		}
+		config.exclude = args[idx+1].componentsSeparatedByString(",").map({ (str) -> String in
+			return relativePath(resolvePath(str, from: config.workDir), to: config.workDir)
+		})
 		args.removeAtIndex(idx+1)
 		args.removeAtIndex(idx)
 	}
@@ -249,6 +266,15 @@ func process_hits(s: String) -> Int? {
 	print(s)
 	return nil
 }
+func checkExclude(path: String) -> Bool {
+	if config.exclude.contains(path) { return true }
+	for ex in config.exclude {
+		if path.hasPrefix(ex) {
+			return true
+		}
+	}
+	return false
+}
 func process_covdata() {
 	if let lines = String(data: run(
 		"/usr/bin/xcrun",
@@ -264,9 +290,14 @@ func process_covdata() {
 				if RegEx.FileBegin.matchesInString(l, options: [], range: NSRange(location: 0, length: l.characters.count)).count > 0 {
 					let fn = relativePath(l.substringToIndex(l.endIndex.advancedBy(-1)), to: config.workDir)
 					if !fn.hasPrefix("../") {
-						file = fn
-						coverage[fn] = [LineCoverage]()
-						vprint("Pricessing \(fn)")
+						if !checkExclude(fn) {
+							file = fn
+							coverage[fn] = [LineCoverage]()
+							vprint("Pricessing \(fn)")
+						} else {
+							file = nil
+							vprint("Skipped \(fn)")
+						}
 					} else {
 						file = nil
 					}
