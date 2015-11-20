@@ -165,10 +165,13 @@ func process_args() {
 			print_usage()
 			exit(EXIT_FAILURE)
 		}
-		var out = resolvePath(args[idx+1], from: fileManager.currentDirectoryPath)
-		var isDir: ObjCBool = false
-		if fileManager.fileExistsAtPath(out, isDirectory: &isDir) && isDir {
-			out = (out as NSString).stringByAppendingPathComponent("coverage.xml")
+		var out = args[idx+1]
+		if out != "-" {
+			out = resolvePath(args[idx+1], from: fileManager.currentDirectoryPath)
+			var isDir: ObjCBool = false
+			if fileManager.fileExistsAtPath(out, isDirectory: &isDir) && isDir {
+				out = (out as NSString).stringByAppendingPathComponent("coverage.xml")
+			}
 		}
 		config.output = out
 		args.removeAtIndex(idx+1)
